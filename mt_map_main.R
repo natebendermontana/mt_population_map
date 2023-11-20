@@ -1,4 +1,4 @@
-#remotes::install_github("https://github.com/tylermorganwall/rayshader")
+remotes::install_github("https://github.com/tylermorganwall/rayshader")
 #remotes::install_github("https://github.com/tylermorganwall/rayrender")
 library(av)
 library(here)
@@ -11,6 +11,7 @@ library(rayshader)
 library(rayrender)
 library(MetBrewer)
 library(colorspace)
+library(gifski)
 
 data_path <- here("data", "kontur_population_US_20231101.gpkg")
 data <- st_read(data_path)
@@ -140,7 +141,7 @@ mat |>
           solid = FALSE,
           shadowdepth = 0,
           windowsize = c(800, 800),
-          background = "white")
+          background = "grey")
 
 # set the camera details after building the 3d object in the window
 render_camera(theta = -15, phi = 20, zoom = .9)
@@ -148,7 +149,7 @@ render_camera(theta = -15, phi = 20, zoom = .9)
 
 #### Create high-quality graphic ####
 
-outfile <- "images/final_plot_1.png"
+outfile <- "images/final_plot.png"
 
 {
   start_time <- Sys.time()
@@ -161,15 +162,15 @@ outfile <- "images/final_plot_1.png"
   render_highquality(
     filename = outfile,
     # number of iterations; more increases the quality
-    samples = 2,
-    preview = T,
+    samples = 50,
+    preview = F,
     interactive = FALSE,
     lightdirection = 210,
     lightaltitude = c(20, 80),
     lightcolor = c(c1[2], "white"),
     lightintensity = c(600, 100),
-    width = 2500/2, #low end: 2500
-    height = 6000/2 #low end: 6000
+    width = 800, #low end: 2500
+    height = 800 #low end: 6000
   )
   end_time <- Sys.time()
   diff <- as.numeric(difftime(end_time, start_time, units = "mins"))
@@ -202,63 +203,17 @@ render_movie(
   zoom = .85
 )
 
-##########################
+####
 #### sample animation ####
-##########################
-library(ggplot2)
+####
 
-ggdiamonds = ggplot(diamonds) +
-  stat_density_2d(aes(x = x, y = depth, fill = stat(nlevel)), 
-                  geom = "polygon", n = 200, bins = 50,contour = TRUE) +
-  facet_wrap(clarity~.) +
-  scale_fill_viridis_c(option = "A")
-
-
-plot_gg(ggdiamonds, width = 5, height = 5, fov=30,phi=20,
-        raytrace = FALSE, triangulate=T, windowsize=c(1160,50,800,800))
-#You need to download an environment light (see polyhaven.com for free HDRs) or set `light = TRUE`
-render_highquality(light=T, 
-                  # environment_light="kiara_1_dawn_2k.hdr",
-                   obj_material=rayrender::diffuse(sigma=90,color="grey20"),  
-                   samples = 256, 
-                   sample_method="sobol_blue",ground_size = 10000)
-
-# First, set up the scene with rayshader
-montereybay %>%
-  sphere_shade(zscale = 10, texture = "imhof1") %>%
-  plot_3d(montereybay, zscale = 50, fov = 70, theta = 270, phi = 30,
-          windowsize = c(50,50,800, 800), zoom = 0.6,
-          water = TRUE, waterdepth = 0, wateralpha = 0.5, 
-          watercolor = "#233aa1",
-          waterlinecolor = "white", waterlinealpha = 0.5)
-
-render_compass()
-#You need to download an environment light (see polyhaven.com for free HDRs) or set `light = TRUE`
 
 render_camera(theta = -15, phi = 20, zoom = .9)
 
-render_highquality(cache_filename = "mb1",
-                   # lightdirection = 210,
-                   # lightaltitude = c(20, 80),
-                   # lightcolor = c(c1[2], "white"),
-                   # lightintensity = c(600, 100),
-                   ground_material = diffuse(color="grey50",
-                                             checkercolor = "grey20",
-                                             checkerperiod = 100), 
-                   return_scene = F)
-
-scene <- render_highquality(cache_filename = "mb1",
-                            # lightdirection = 210,
-                            # lightaltitude = c(20, 80),
-                            # lightcolor = c(c1[2], "white"),
-                            # lightintensity = c(600, 100),
-                            ground_material = diffuse(color="grey50",
-                                                      checkercolor = "grey20",
-                                                      checkerperiod = 100), 
+scene <- render_highquality(cache_filename = "mb1", 
                      return_scene = T)
 
 camera_pos = list(c(100,100,100),c(100,100,200),c(100,100,300),c(100,100,350),c(100,100,400))
-
 
 motion <- generate_camera_motion(positions = camera_pos, 
                                 frames=120, type = "cubic")
@@ -284,4 +239,58 @@ anim_outfile <- "images/anim_test"
   cat(crayon::cyan(end_time), "\n")
   cat(crayon::cyan(sprintf("Elapsed time: %.2f minutes", diff)), "\n")
 }
+
+####
+
+
+n_frames <- 2
+zscale_val <- 35
+zoom_val <- .9
+theta_val <- seq(0, 360, length.out = n_frames)
+phi_val <- 35
+
+outdir <- "anim/"
+
+# generate .png frame images
+img_frames <- paste0(outdir, "drain", seq_len(n_frames), ".png")
+{
+  start_time <- Sys.time()
+  cat(crayon::cyan(start_time), "\n")
+  for (i in seq_len(n_frames)) {
+    message(paste(" - image", i, "of", n_frames))
+    try(rgl::close3d())
+    mat %>%
+      height_shade(texture = texture) %>% 
+      plot_3d(heightmap = mat,
+              solid = FALSE,
+              shadowdepth = 0,
+              theta = theta_val[i],
+              phi = phi_val,
+              zscale = zscale_val,
+              zoom = zoom_val,
+              windowsize = c(800, 600),
+              background = "white")
+    #render_snapshot(img_frames[i])
+    render_highquality(img_frames[i],
+                       # number of iterations; more increases the quality
+                       samples = 5,
+                       preview = F,
+                       interactive = FALSE,
+                       lightdirection = 210,
+                       lightaltitude = c(20, 80),
+                       lightcolor = c(c1[2], "white"),
+                       lightintensity = c(600, 100))
+    rgl::clear3d()
+    end_time <- Sys.time()
+    diff <- as.numeric(difftime(end_time, start_time, units = "mins"))
+    cat(crayon::cyan(end_time), "\n")
+    cat(crayon::cyan(sprintf("Elapsed time: %.2f minutes", diff)), "\n")
+  }
+}
+# build gif
+magick::image_write_gif(magick::image_read(img_frames), 
+                        path = "anim/test.gif", 
+                        delay = 6/n_frames)
+
+
 
