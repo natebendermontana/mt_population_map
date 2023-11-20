@@ -1,3 +1,8 @@
+# user files
+/data
+/images
+.DS_Store
+
 # History files
 .Rhistory
 .Rapp.history
