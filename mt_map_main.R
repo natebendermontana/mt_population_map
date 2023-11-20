@@ -36,23 +36,35 @@ st_montana_temp %>%
   geom_sf()
 
 # get state boundary
-address <- "https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_land.zip"
-destdir <- tempdir()
-utils::download.file(file.path(address), zip_file <- tempfile())
-utils::unzip(zip_file, exdir = destdir)
-land <- st_read(glue("{destdir}/ne_10m_land.shp")) |>
-  st_transform(crs = st_crs(data))
+# address <- "https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_land.zip"
+# destdir <- tempdir()
+# utils::download.file(file.path(address), zip_file <- tempfile())
+# utils::unzip(zip_file, exdir = destdir)
+# land <- st_read(glue("{destdir}/ne_10m_land.shp")) |>
+#   st_transform(crs = st_crs(data))
+# 
+# mt_land <- st_intersection(st_montana_temp, land)
+# mt_land %>% 
+#   ggplot() +
+#   geom_sf()
+# 
+# # original
+# mt_buff <- mt_land |>
+#   st_cast("MULTILINESTRING") |>
+#   st_buffer(1609.34, endCapStyle = "FLAT", joinStyle = "MITRE") |>
+#   mutate(population = 1) |>
+#   rename(geom = geometry)
 
-mt_land <- st_intersection(st_montana_temp, land)
-mt_land %>% 
-  ggplot() +
-  geom_sf()
-
-mt_buff <- mt_land |>
+# new
+mt_buff <- montana |>
   st_cast("MULTILINESTRING") |>
   st_buffer(1609.34, endCapStyle = "FLAT", joinStyle = "MITRE") |>
   mutate(population = 1) |>
   rename(geom = geometry)
+mt_buff %>% 
+  ggplot() +
+  geom_sf()
+###
 
 mt_buff |>
   ggplot() +
@@ -189,9 +201,10 @@ render_movie(
   theta = theta_vec,
   zoom = .85
 )
-  
-#### sample animation
-####
+
+##########################
+#### sample animation ####
+##########################
 library(ggplot2)
 
 ggdiamonds = ggplot(diamonds) +
@@ -220,22 +233,55 @@ montereybay %>%
           waterlinecolor = "white", waterlinealpha = 0.5)
 
 render_compass()
-render_scalebar(limits=c(0, 80), label_unit = "km",position="N")
-render_camera(theta=-45,phi=45,zoom=1)
 #You need to download an environment light (see polyhaven.com for free HDRs) or set `light = TRUE`
 
+render_camera(theta = -15, phi = 20, zoom = .9)
+
+render_highquality(cache_filename = "mb1",
+                   # lightdirection = 210,
+                   # lightaltitude = c(20, 80),
+                   # lightcolor = c(c1[2], "white"),
+                   # lightintensity = c(600, 100),
+                   ground_material = diffuse(color="grey50",
+                                             checkercolor = "grey20",
+                                             checkerperiod = 100), 
+                   return_scene = F)
 
 scene <- render_highquality(cache_filename = "mb1",
-                     ground_material = diffuse(color="grey50",
-                                               checkercolor = "grey20", 
-                                               checkerperiod = 100), 
+                            # lightdirection = 210,
+                            # lightaltitude = c(20, 80),
+                            # lightcolor = c(c1[2], "white"),
+                            # lightintensity = c(600, 100),
+                            ground_material = diffuse(color="grey50",
+                                                      checkercolor = "grey20",
+                                                      checkerperiod = 100), 
                      return_scene = T)
 
-motion <- generate_camera_motion(positions = get_saved_keyframes(), 
-                                frames=60, type = "cubic")
+camera_pos = list(c(100,100,100),c(100,100,200),c(100,100,300),c(100,100,350),c(100,100,400))
 
-render_animation(scene=scene,
-                 camera_motion = motion, 
-                 environment_light="quarry_03_4k.hdr", 
-                 samples=1,width = 800,height=800)
+
+motion <- generate_camera_motion(positions = camera_pos, 
+                                frames=120, type = "cubic")
+
+anim_outfile <- "images/anim_test"
+
+
+{
+  start_time <- Sys.time()
+  cat(crayon::cyan(start_time), "\n")
+  render_animation(filename = anim_outfile,
+                   scene=scene,
+                   camera_motion = motion, 
+                   #environment_light = "data/rosendal_park_sunset_4k.hdr",
+                   samples=5,
+                   width = 800,
+                   height=800)
+  
+  av::av_encode_video(glue::glue("images/anim_test{1:60}.png"), 
+                      output = "anim/anim_test.mp4", framerate = 60)
+  end_time <- Sys.time()
+  diff <- as.numeric(difftime(end_time, start_time, units = "mins"))
+  cat(crayon::cyan(end_time), "\n")
+  cat(crayon::cyan(sprintf("Elapsed time: %.2f minutes", diff)), "\n")
+}
 

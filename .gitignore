@@ -1,6 +1,7 @@
 # user files
 /data
 /images
+/anim
 .DS_Store
 
 # History files
